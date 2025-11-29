@@ -31,33 +31,31 @@ jobs:
         path: bandit-report.json
 
 
-  image_scan:
-    name: Build Image and Run Vulnerability Scan
-    runs-on: ubuntu-latest
+image_scan:
+  name: Build Image and Scan with Trivy
+  runs-on: ubuntu-latest
 
-    steps:
+  steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
     - name: Build Docker Image
-      run: docker build -f Dockerfile -t myapp:latest .
+      run: docker build -t myapp:latest .
 
     - name: Install Trivy
       run: |
         sudo apt-get update
-        sudo apt-get install -y wget
-        wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_Linux-64bit.deb
-        sudo dpkg -i trivy_Linux-64bit.deb
+        sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+        echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update
+        sudo apt-get install -y trivy
 
-    - name: Scan Docker Image with Trivy
-      run: trivy image --severity HIGH,CRITICAL --format json --output trivy-report.json myapp:latest
+    - name: Run Trivy Image Scan
+      run: trivy image --severity CRITICAL,HIGH --format json --output trivy-report.json myapp:latest
 
-    - name: Upload Trivy Findings
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
-      if: always()
       with:
         name: trivy-findings
         path: trivy-report.json
